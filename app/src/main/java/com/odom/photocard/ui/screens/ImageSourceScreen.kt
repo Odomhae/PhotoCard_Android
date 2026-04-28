@@ -14,18 +14,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.odom.photocard.ui.ImageSourceType
 import com.odom.photocard.viewmodel.PhotoCardViewModel
 import java.io.File
 import java.text.SimpleDateFormat
@@ -52,12 +61,13 @@ import java.util.Locale
 @Composable
 fun ImageSourceScreen(
     viewModel: PhotoCardViewModel,
-    onImageSelected: () -> Unit
+    onImageSelected: (ImageSourceType) -> Unit
 ) {
     val context = LocalContext.current
     var photoUri by remember { mutableStateOf<Uri?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
     var permissionToRequest by remember { mutableStateOf<String?>(null) }
+    var showColorPicker by remember { mutableStateOf(false) }
 
     // Gallery picker launcher
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -65,7 +75,7 @@ fun ImageSourceScreen(
     ) { uri: Uri? ->
         uri?.let {
             viewModel.setImage(it, context)
-            onImageSelected()
+            onImageSelected(ImageSourceType.CAMERA_GALLERY)
         }
     }
 
@@ -76,7 +86,7 @@ fun ImageSourceScreen(
         if (success) {
             photoUri?.let {
                 viewModel.setImage(it, context)
-                onImageSelected()
+                onImageSelected(ImageSourceType.CAMERA_GALLERY)
             }
         }
     }
@@ -125,7 +135,8 @@ fun ImageSourceScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -197,6 +208,48 @@ fun ImageSourceScreen(
                     }
                 }
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sample Images option
+            SourceOptionCard(
+                icon = Icons.Default.Shuffle,
+                title = "Sample Images",
+                description = "Use a random online image",
+                onClick = {
+                    val randomUrl = "${PhotoCardViewModel.SAMPLE_IMAGE_URL}?t=${System.currentTimeMillis()}"
+                    viewModel.loadSampleImage(randomUrl)
+                    viewModel.addSampleQuote()
+                    onImageSelected(ImageSourceType.SAMPLE_IMAGE)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Solid Color option
+            SourceOptionCard(
+                icon = Icons.Default.ColorLens,
+                title = "Solid Color",
+                description = "Create a photo card with a colored background",
+                onClick = {
+                    showColorPicker = true
+                }
+            )
+
+            // Color Picker Dialog
+            if (showColorPicker) {
+                ColorPickerDialog(
+                    onColorSelected = { colorInt ->
+                        viewModel.createSolidColorBitmap(colorInt)
+                        viewModel.addSampleQuote()
+                        showColorPicker = false
+                        onImageSelected(ImageSourceType.SOLID_COLOR)
+                    },
+                    onDismiss = {
+                        showColorPicker = false
+                    }
+                )
+            }
         }
     }
 }
@@ -241,6 +294,88 @@ private fun SourceOptionCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorPickerDialog(
+    onColorSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = listOf(
+        android.graphics.Color.parseColor("#FF6B6B"), // Red
+        android.graphics.Color.parseColor("#FF8E53"), // Orange
+        android.graphics.Color.parseColor("#F7DC6F"), // Yellow
+        android.graphics.Color.parseColor("#96CEB4"), // Green
+        android.graphics.Color.parseColor("#4ECDC4"), // Teal
+        android.graphics.Color.parseColor("#45B7D1"), // Blue
+        android.graphics.Color.parseColor("#85C1E9"), // Sky
+        android.graphics.Color.parseColor("#BB8FCE"), // Lavender
+        android.graphics.Color.parseColor("#DDA0DD"), // Plum
+        android.graphics.Color.parseColor("#F8C8DC"), // Pink
+        android.graphics.Color.parseColor("#2C3E50"), // Dark Blue
+        android.graphics.Color.parseColor("#34495E"), // Gray Blue
+        android.graphics.Color.parseColor("#1ABC9C"), // Emerald
+        android.graphics.Color.parseColor("#16A085"), // Green Sea
+        android.graphics.Color.parseColor("#E74C3C"), // Alizarin
+        android.graphics.Color.parseColor("#C0392B"), // Pomegranate
+        android.graphics.Color.parseColor("#95A5A6"), // Concrete
+        android.graphics.Color.parseColor("#7F8C8D"), // Asbestos
+        android.graphics.Color.parseColor("#2ECC71"), // Nephritis
+        android.graphics.Color.parseColor("#27AE60")  // Sea Green
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth()
+            ) {
+                Text(
+                    text = "Choose Background Color",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Color grid
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    colors.chunked(5).forEach { rowColors ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            rowColors.forEach { colorInt ->
+                                Surface(
+                                    onClick = { onColorSelected(colorInt) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = androidx.compose.ui.graphics.Color(colorInt),
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                ) {}
+                            }
+                        }
+                    }
+                }
+
+                // Cancel button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(top = 16.dp)
+                ) {
+                    Text("Cancel")
+                }
             }
         }
     }

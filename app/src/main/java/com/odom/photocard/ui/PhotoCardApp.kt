@@ -21,6 +21,15 @@ sealed class Screen(val route: String) {
 }
 
 /**
+ * Image source type to determine navigation flow
+ */
+enum class ImageSourceType {
+    CAMERA_GALLERY,  // Needs image editing
+    SAMPLE_IMAGE,    // Skip editing, go to edit
+    SOLID_COLOR      // Skip editing, go to edit
+}
+
+/**
  * Main app navigation host
  */
 @Composable
@@ -36,8 +45,17 @@ fun PhotoCardApp(
         composable(Screen.ImageSource.route) {
             ImageSourceScreen(
                 viewModel = viewModel,
-                onImageSelected = {
-                    navController.navigate(Screen.ImageEdit.route)
+                onImageSelected = { sourceType ->
+                    when (sourceType) {
+                        ImageSourceType.CAMERA_GALLERY -> {
+                            navController.navigate(Screen.ImageEdit.route)
+                        }
+                        ImageSourceType.SAMPLE_IMAGE,
+                        ImageSourceType.SOLID_COLOR -> {
+                            // Skip image editing for samples and colors
+                            navController.navigate(Screen.Edit.route)
+                        }
+                    }
                 }
             )
         }

@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -59,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -146,9 +148,11 @@ fun EditScreen(
                     .weight(1f)
                     .padding(16.dp)
             ) {
-                state.imageUri?.let { uri ->
+                // Show editor if we have either URI or bitmap
+                if (state.imageUri != null || state.bitmap != null) {
                     PhotoCardEditor(
-                        imageUri = uri,
+                        imageUri = state.imageUri,
+                        bitmap = state.bitmap,
                         textOverlays = state.textOverlays,
                         selectedTextId = state.selectedTextId,
                         onTextSelected = { viewModel.selectTextOverlay(it) },
@@ -186,7 +190,8 @@ fun EditScreen(
 
 @Composable
 private fun PhotoCardEditor(
-    imageUri: Uri,
+    imageUri: Uri?,
+    bitmap: Bitmap?,
     textOverlays: List<TextOverlay>,
     selectedTextId: String?,
     onTextSelected: (String?) -> Unit,
@@ -199,13 +204,24 @@ private fun PhotoCardEditor(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
     ) {
-        // Background image
-        AsyncImage(
-            model = imageUri,
-            contentDescription = "Photo",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        // Background image - use bitmap if available, otherwise use URI
+        bitmap?.let { bmp ->
+            androidx.compose.foundation.Image(
+                bitmap = bmp.asImageBitmap(),
+                contentDescription = "Photo",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } ?: run {
+            imageUri?.let { uri ->
+                AsyncImage(
+                    model = uri,
+                    contentDescription = "Photo",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
 
         // Text overlays
         textOverlays.forEach { overlay ->
