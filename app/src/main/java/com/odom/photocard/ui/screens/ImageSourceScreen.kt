@@ -64,7 +64,7 @@ fun ImageSourceScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            viewModel.setImage(it)
+            viewModel.setImage(it, context)
             onImageSelected()
         }
     }
@@ -75,7 +75,7 @@ fun ImageSourceScreen(
     ) { success ->
         if (success) {
             photoUri?.let {
-                viewModel.setImage(it)
+                viewModel.setImage(it, context)
                 onImageSelected()
             }
         }

@@ -113,8 +113,8 @@ fun ImageEditScreen(
                                     scale,
                                     offset
                                 )
-                                editedUri?.let {
-                                    viewModel.setImage(it)
+                                editedUri?.let { uri ->
+                                    viewModel.setImage(uri, context)
                                     onEditComplete()
                                 }
                             }

@@ -525,8 +525,26 @@ private fun createFinalBitmap(state: com.odom.photocard.viewmodel.PhotoCardState
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     
-    // Fill with white background (in case there's no image)
-    canvas.drawColor(android.graphics.Color.WHITE)
+    // Draw background image if available
+    state.bitmap?.let { bgBitmap ->
+        // Calculate scale to fit the bitmap to canvas while maintaining aspect ratio
+        val scaleX = width.toFloat() / bgBitmap.width
+        val scaleY = height.toFloat() / bgBitmap.height
+        val scale = kotlin.math.max(scaleX, scaleY)
+        
+        val scaledWidth = bgBitmap.width * scale
+        val scaledHeight = bgBitmap.height * scale
+        
+        // Center the scaled image
+        val left = (width - scaledWidth) / 2f
+        val top = (height - scaledHeight) / 2f
+        
+        val destRect = android.graphics.RectF(left, top, left + scaledWidth, top + scaledHeight)
+        canvas.drawBitmap(bgBitmap, null, destRect, null)
+    } ?: run {
+        // Fill with white background if no image
+        canvas.drawColor(android.graphics.Color.WHITE)
+    }
     
     // Draw text overlays
     val paint = Paint().apply {

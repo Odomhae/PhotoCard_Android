@@ -1,15 +1,21 @@
 package com.odom.photocard.viewmodel
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Data class representing a text overlay on the image
@@ -49,12 +55,21 @@ class PhotoCardViewModel : ViewModel() {
     /**
      * Set the selected image from camera or gallery
      */
-    fun setImage(uri: Uri) {
+    fun setImage(uri: Uri, context: Context? = null) {
         _state.value = _state.value.copy(
             imageUri = uri,
             textOverlays = emptyList(),
             selectedTextId = null
         )
+        // Load bitmap if context is provided
+        context?.let {
+            viewModelScope.launch {
+                val bitmap = loadBitmapFromUri(it, uri)
+                bitmap?.let { bmp ->
+                    _state.value = _state.value.copy(bitmap = bmp)
+                }
+            }
+        }
     }
 
     /**
@@ -62,6 +77,22 @@ class PhotoCardViewModel : ViewModel() {
      */
     fun setBitmap(bitmap: Bitmap) {
         _state.value = _state.value.copy(bitmap = bitmap)
+    }
+
+    /**
+     * Load bitmap from URI
+     */
+    private suspend fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
+        return withContext(Dispatchers.IO) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    BitmapFactory.decodeStream(inputStream)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
     }
 
     /**
