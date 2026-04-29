@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -248,16 +249,13 @@ private fun DraggableText(
     onRotate: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isDragging by remember { mutableStateOf(false) }
     val density = LocalDensity.current.density
 
-    // Temporary states to track changes during gesture
     var offsetX by remember { mutableFloatStateOf(textOverlay.x) }
     var offsetY by remember { mutableFloatStateOf(textOverlay.y) }
     var tempFontSize by remember { mutableFloatStateOf(textOverlay.fontSize.value) }
     var tempRotation by remember { mutableFloatStateOf(textOverlay.rotation) }
 
-    // Sync with external changes
     LaunchedEffect(textOverlay.id, textOverlay.x, textOverlay.y) {
         offsetX = textOverlay.x
         offsetY = textOverlay.y
@@ -269,70 +267,42 @@ private fun DraggableText(
         tempRotation = textOverlay.rotation
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-    ) {
-        Text(
-            text = textOverlay.text,
+    Box(modifier = modifier.fillMaxSize()) {
+        // Box provides a larger touch target so both fingers can land within bounds,
+        // enabling detectTransformGestures to receive two-pointer events for pinch/rotate.
+        Box(
             modifier = Modifier
                 .offset(x = offsetX.dp, y = offsetY.dp)
-                .graphicsLayer {
-                    rotationZ = tempRotation
-                    scaleX = if (isDragging) 1.05f else 1f
-                    scaleY = if (isDragging) 1.05f else 1f
-                }
-                .drawBehind {
-                    if (isSelected) {
-                        drawRect(
-                            color = Color.White.copy(alpha = 0.3f),
-                            size = size
-                        )
-                    }
-                    if (isDragging) {
-                        drawRect(
-                            color = Color.Cyan.copy(alpha = 0.4f),
-                            size = size
-                        )
-                    }
-                }
+                .graphicsLayer { rotationZ = tempRotation }
+                .defaultMinSize(minWidth = 120.dp, minHeight = 80.dp)
                 .pointerInput(textOverlay.id) {
-                    var isGestureStarted = false
                     detectTransformGestures { _, pan, zoom, rotation ->
-                        // Start gesture on first call
-                        if (!isGestureStarted) {
-                            isGestureStarted = true
-                            isDragging = true
-                            onClick()
-                        }
-
-                        // Handle drag (pan) - works with single finger
+                        onClick()
                         offsetX += pan.x / density
                         offsetY += pan.y / density
                         onDrag(offsetX, offsetY)
-
-                        // Handle pinch zoom (multi-touch)
-                        if (kotlin.math.abs(zoom - 1f) > 0.01f) {
-                            tempFontSize = (tempFontSize * zoom).coerceIn(12f, 200f)
-                            onScale(tempFontSize)
-                        }
-
-                        // Handle rotation (multi-touch)
-                        if (kotlin.math.abs(rotation) > 0.5f) {
-                            tempRotation += rotation
-                            onRotate(tempRotation)
-                        }
+                        tempFontSize = (tempFontSize * zoom).coerceIn(12f, 200f)
+                        onScale(tempFontSize)
+                        tempRotation += rotation
+                        onRotate(tempRotation)
                     }
-                    // Gesture ended
-                    isDragging = false
+                }
+        ) {
+            Text(
+                text = textOverlay.text,
+                modifier = Modifier.drawBehind {
+                    if (isSelected) {
+                        drawRect(color = Color.White.copy(alpha = 0.3f), size = size)
+                    }
                 },
-            style = TextStyle(
-                color = textOverlay.color,
-                fontSize = tempFontSize.sp,
-                fontWeight = textOverlay.fontWeight
-            ),
-            textAlign = TextAlign.Center
-        )
+                style = TextStyle(
+                    color = textOverlay.color,
+                    fontSize = tempFontSize.sp,
+                    fontWeight = textOverlay.fontWeight
+                ),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -566,7 +536,7 @@ private fun createFinalBitmap(state: com.odom.photocard.viewmodel.PhotoCardState
     val paint = Paint().apply {
         isAntiAlias = true
     }
-    
+
     state.textOverlays.forEach { overlay ->
         paint.apply {
             color = overlay.color.toArgb()
@@ -577,11 +547,21 @@ private fun createFinalBitmap(state: com.odom.photocard.viewmodel.PhotoCardState
                 else -> Typeface.DEFAULT
             }
         }
-        
+
         val x = overlay.x * 3f
         val y = overlay.y * 3f + paint.textSize
-        canvas.drawText(overlay.text, x, y, paint)
+
+        // Apply rotation if needed
+        if (overlay.rotation != 0f) {
+            canvas.save()
+            // Rotate around the text position
+            canvas.rotate(overlay.rotation, x, y - paint.textSize / 2)
+            canvas.drawText(overlay.text, x, y, paint)
+            canvas.restore()
+        } else {
+            canvas.drawText(overlay.text, x, y, paint)
+        }
     }
-    
+
     return bitmap
 }
