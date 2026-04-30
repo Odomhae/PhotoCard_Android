@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -66,6 +68,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -81,6 +85,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Screen for editing photo card with text overlays
@@ -166,6 +173,9 @@ fun EditScreen(
                         onTextRotated = { id, rotation ->
                             viewModel.updateTextRotation(id, rotation)
                         },
+                        onTextDeleted = { id ->
+                            viewModel.deleteTextOverlay(id)
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -199,6 +209,7 @@ private fun PhotoCardEditor(
     onTextMoved: (String, Float, Float) -> Unit,
     onTextScaled: (String, Float) -> Unit,
     onTextRotated: (String, Float) -> Unit,
+    onTextDeleted: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -233,6 +244,7 @@ private fun PhotoCardEditor(
                 onDrag = { x, y -> onTextMoved(overlay.id, x, y) },
                 onScale = { size -> onTextScaled(overlay.id, size) },
                 onRotate = { rotation -> onTextRotated(overlay.id, rotation) },
+                onDelete = { onTextDeleted(overlay.id) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -247,6 +259,7 @@ private fun DraggableText(
     onDrag: (Float, Float) -> Unit,
     onScale: (Float) -> Unit,
     onRotate: (Float) -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current.density
@@ -255,6 +268,7 @@ private fun DraggableText(
     var offsetY by remember { mutableFloatStateOf(textOverlay.y) }
     var tempFontSize by remember { mutableFloatStateOf(textOverlay.fontSize.value) }
     var tempRotation by remember { mutableFloatStateOf(textOverlay.rotation) }
+    var textBoxSizePx by remember { mutableStateOf(IntSize.Zero) }
 
     LaunchedEffect(textOverlay.id, textOverlay.x, textOverlay.y) {
         offsetX = textOverlay.x
@@ -268,23 +282,27 @@ private fun DraggableText(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Box provides a larger touch target so both fingers can land within bounds,
-        // enabling detectTransformGestures to receive two-pointer events for pinch/rotate.
+        // Large touch target (160×100 dp min) ensures two fingers fit for pinch-to-zoom.
         Box(
             modifier = Modifier
                 .offset(x = offsetX.dp, y = offsetY.dp)
                 .graphicsLayer { rotationZ = tempRotation }
-                .defaultMinSize(minWidth = 120.dp, minHeight = 80.dp)
+                .defaultMinSize(minWidth = 160.dp, minHeight = 100.dp)
+                .onSizeChanged { textBoxSizePx = it }
                 .pointerInput(textOverlay.id) {
-                    detectTransformGestures { _, pan, zoom, rotation ->
+                    detectTransformGestures { _, pan, zoom, _ ->
                         onClick()
-                        offsetX += pan.x / density
-                        offsetY += pan.y / density
+                        // detectTransformGestures delivers pan in the composable's rotated local
+                        // coordinate frame (graphicsLayer rotates event coordinates). Rotate the
+                        // pan vector back to screen/parent space before updating the layout offset.
+                        val rad = Math.toRadians(tempRotation.toDouble())
+                        val cosR = cos(rad).toFloat()
+                        val sinR = sin(rad).toFloat()
+                        offsetX += (pan.x * cosR - pan.y * sinR) / density
+                        offsetY += (pan.x * sinR + pan.y * cosR) / density
                         onDrag(offsetX, offsetY)
                         tempFontSize = (tempFontSize * zoom).coerceIn(12f, 200f)
                         onScale(tempFontSize)
-                        tempRotation += rotation
-                        onRotate(tempRotation)
                     }
                 }
         ) {
@@ -302,6 +320,78 @@ private fun DraggableText(
                 ),
                 textAlign = TextAlign.Center
             )
+        }
+
+        // Delete and rotate handles shown just above the text when it is selected
+        if (isSelected && textBoxSizePx != IntSize.Zero) {
+            val boxWidthDp = textBoxSizePx.width / density
+            // Both handles sit 8 dp above the text top (44 dp handle + 8 dp gap = 52 dp)
+            val handleY = offsetY - 52f
+
+            // Delete handle — top-left above text
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .offset(x = (offsetX - 22f).dp, y = handleY.dp)
+                    .size(44.dp)
+                    .background(Color(0xFFE53935).copy(alpha = 0.9f), CircleShape)
+                    .pointerInput("delete_${textOverlay.id}") {
+                        detectDragGestures(onDragStart = { onDelete() }, onDrag = { _, _ -> })
+                    }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete text",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Rotate handle — top-right above text, one-finger drag rotates the text
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .offset(x = (offsetX + boxWidthDp - 22f).dp, y = handleY.dp)
+                    .size(44.dp)
+                    .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                    .pointerInput("rotate_${textOverlay.id}") {
+                        detectDragGestures(
+                            onDragStart = { onClick() },
+                            onDrag = { change, _ ->
+                                val bw = textBoxSizePx.width.toFloat() / density
+                                val bh = textBoxSizePx.height.toFloat() / density
+                                // Handle top-left in parent-dp coordinates
+                                val hx = offsetX + bw - 22f
+                                val hy = offsetY - 52f
+                                // Text box center in parent-dp coordinates
+                                val cx = offsetX + bw / 2f
+                                val cy = offsetY + bh / 2f
+
+                                val prevX = hx + change.previousPosition.x / density
+                                val prevY = hy + change.previousPosition.y / density
+                                val currX = hx + change.position.x / density
+                                val currY = hy + change.position.y / density
+
+                                val prevAngle = atan2(prevY - cy, prevX - cx)
+                                val currAngle = atan2(currY - cy, currX - cx)
+                                val delta = Math.toDegrees(
+                                    (currAngle - prevAngle).toDouble()
+                                ).toFloat()
+
+                                tempRotation += delta
+                                onRotate(tempRotation)
+                                change.consume()
+                            }
+                        )
+                    }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Rotate text",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
     }
 }

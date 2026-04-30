@@ -63,8 +63,6 @@ import com.odom.photocard.viewmodel.PhotoCardViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 
 /**
  * Screen for editing background image (crop and rotate)
@@ -106,15 +104,15 @@ fun ImageEditScreen(
                     IconButton(
                         onClick = {
                             scope.launch {
-                                val editedUri = saveEditedImage(
-                                    context,
+                                // Build the edited bitmap directly — avoids file:// URI which
+                                // is blocked across process boundaries on Android 7+.
+                                val editedBitmap = createEditedBitmap(
                                     imageBitmap?.asAndroidBitmap(),
                                     rotation,
-                                    scale,
-                                    offset
+                                    scale
                                 )
-                                editedUri?.let { uri ->
-                                    viewModel.setImage(uri, context)
+                                editedBitmap?.let { bmp ->
+                                    viewModel.setBitmap(bmp)
                                     onEditComplete()
                                 }
                             }
@@ -336,42 +334,18 @@ private suspend fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? {
     }
 }
 
-private suspend fun saveEditedImage(
-    context: Context,
+private suspend fun createEditedBitmap(
     bitmap: Bitmap?,
     rotation: Float,
-    scale: Float,
-    offset: Offset
-): Uri? {
+    scale: Float
+): Bitmap? {
     if (bitmap == null) return null
-    
     return withContext(Dispatchers.IO) {
         try {
-            // Create matrix for transformations
             val matrix = Matrix()
-            
-            // Apply rotation
             matrix.postRotate(rotation % 360)
-            
-            // Apply scale
             matrix.postScale(scale, scale)
-            
-            // Create transformed bitmap
-            val transformedBitmap = Bitmap.createBitmap(
-                bitmap,
-                0, 0,
-                bitmap.width, bitmap.height,
-                matrix,
-                true
-            )
-            
-            // Save to file
-            val file = File(context.cacheDir, "edited_image_${System.currentTimeMillis()}.jpg")
-            FileOutputStream(file).use { out ->
-                transformedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
-            }
-            
-            Uri.fromFile(file)
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
         } catch (e: Exception) {
             e.printStackTrace()
             null
