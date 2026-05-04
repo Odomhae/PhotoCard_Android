@@ -41,7 +41,8 @@ data class PhotoCardState(
     val textOverlays: List<TextOverlay> = emptyList(),
     val selectedTextId: String? = null,
     val isSaving: Boolean = false,
-    val saveSuccess: Boolean = false
+    val saveSuccess: Boolean = false,
+    val canUndo: Boolean = false
 )
 
 /**
@@ -51,6 +52,8 @@ class PhotoCardViewModel : ViewModel() {
 
     private val _state = MutableStateFlow(PhotoCardState())
     val state: StateFlow<PhotoCardState> = _state.asStateFlow()
+
+    private val deletedStack = ArrayDeque<TextOverlay>()
 
     /**
      * Set the selected image from camera or gallery
@@ -151,13 +154,26 @@ class PhotoCardViewModel : ViewModel() {
     }
 
     /**
-     * Delete a text overlay
+     * Delete a text overlay (pushes to undo stack)
      */
     fun deleteTextOverlay(id: String) {
+        _state.value.textOverlays.find { it.id == id }?.let { deletedStack.addLast(it) }
         val updatedList = _state.value.textOverlays.filter { it.id != id }
         _state.value = _state.value.copy(
             textOverlays = updatedList,
-            selectedTextId = null
+            selectedTextId = null,
+            canUndo = deletedStack.isNotEmpty()
+        )
+    }
+
+    /**
+     * Restore the last deleted text overlay
+     */
+    fun undoDelete() {
+        val overlay = deletedStack.removeLastOrNull() ?: return
+        _state.value = _state.value.copy(
+            textOverlays = _state.value.textOverlays + overlay,
+            canUndo = deletedStack.isNotEmpty()
         )
     }
 
@@ -172,6 +188,7 @@ class PhotoCardViewModel : ViewModel() {
      * Clear all state
      */
     fun clearState() {
+        deletedStack.clear()
         _state.value = PhotoCardState()
     }
 

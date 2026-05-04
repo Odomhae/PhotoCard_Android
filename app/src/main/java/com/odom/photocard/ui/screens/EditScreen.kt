@@ -16,15 +16,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,11 +37,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -121,15 +128,18 @@ fun EditScreen(
                     }
                 },
                 actions = {
+                    if (state.canUndo) {
+                        IconButton(onClick = { viewModel.undoDelete() }) {
+                            Icon(Icons.Default.Undo, contentDescription = "실행 취소")
+                        }
+                    }
                     IconButton(
                         onClick = {
-                            scope.launch {
-                                saveAndShareImage(context, state, viewModel)
-                            }
+                            scope.launch { saveAndShareImage(context, state, viewModel) }
                         },
                         enabled = !state.isSaving
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = "Share")
+                        Icon(Icons.Default.Share, contentDescription = "공유")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -139,11 +149,17 @@ fun EditScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.addTextOverlay() }
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Text")
-            }
+            ExtendedFloatingActionButton(
+                onClick = { viewModel.addTextOverlay() },
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = {
+                    Text(
+                        "글자 추가",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            )
         }
     ) { paddingValues ->
         Column(
@@ -183,6 +199,36 @@ fun EditScreen(
                 }
             }
 
+            // Hint for elderly users when image is ready but no text added yet
+            if (state.textOverlays.isEmpty() && (state.imageUri != null || state.bitmap != null)) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "아래 '글자 추가' 버튼을 눌러\n글자를 추가하세요",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+
             // Text editing panel
             state.selectedTextId?.let { selectedId ->
                 val selectedOverlay = state.textOverlays.find { it.id == selectedId }
@@ -193,7 +239,7 @@ fun EditScreen(
                         onDelete = { viewModel.deleteTextOverlay(selectedId) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(360.dp)
+                            .height(430.dp)
                     )
                 }
             }
@@ -441,15 +487,37 @@ private fun TextEditorPanel(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Font size slider
-        Text("Font Size: ${fontSize.toInt()}sp", style = MaterialTheme.typography.bodySmall)
+        // Quick font size presets
+        Text("글자 크기:", style = MaterialTheme.typography.bodySmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(24f to "소", 36f to "중", 48f to "대", 64f to "특대").forEach { (size, label) ->
+                Button(
+                    onClick = {
+                        fontSize = size
+                        onUpdate(textOverlay.copy(fontSize = size.sp))
+                    },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    Text(label, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Fine-tuning slider
+        Text("세밀 조정: ${fontSize.toInt()}sp", style = MaterialTheme.typography.bodySmall)
         Slider(
             value = fontSize,
             onValueChange = {
                 fontSize = it
                 onUpdate(textOverlay.copy(fontSize = it.sp))
             },
-            valueRange = 12f..72f,
+            valueRange = 12f..80f,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -544,27 +612,19 @@ private fun ColorPicker(
         Color(0xFF795548)  // Brown
     )
 
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        colors.forEach { color ->
+        lazyItems(colors) { color ->
             val isSelected = selectedColor == color
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
-                    .background(color)
-                    .let { modifier ->
-                        if (isSelected) {
-                            modifier
-                                .padding(3.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .padding(2.dp)
-                        } else {
-                            modifier
-                        }
-                    }
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                    .padding(if (isSelected) 4.dp else 0.dp)
                     .clip(CircleShape)
                     .background(color)
                     .clickable { onColorSelected(color) },
@@ -575,7 +635,7 @@ private fun ColorPicker(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
                         tint = if (color == Color.White || color == Color.Yellow || color == Color.Cyan) Color.Black else Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }

@@ -5,7 +5,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -277,24 +280,35 @@ private fun SourceOptionCard(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .height(140.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             Column(
                 modifier = Modifier
-                    .padding(start = 16.dp)
+                    .padding(start = 20.dp)
                     .weight(1f)
             ) {
                 Text(

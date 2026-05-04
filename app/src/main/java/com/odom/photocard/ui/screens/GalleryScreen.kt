@@ -5,7 +5,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -93,12 +95,26 @@ fun GalleryScreen(onNavigateBack: () -> Unit) {
                 )
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(8.dp),
+            Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "탭하면 공유 · 길게 누르면 삭제",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
+                    LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -135,7 +151,8 @@ fun GalleryScreen(onNavigateBack: () -> Unit) {
                         )
                     }
                 }
-            }
+            }  // LazyVerticalGrid
+            }  // Column
         }
     }
 

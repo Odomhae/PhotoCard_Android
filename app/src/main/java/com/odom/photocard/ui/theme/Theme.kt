@@ -1,57 +1,42 @@
 package com.odom.photocard.ui.theme
 
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
+private val ElderColorScheme = lightColorScheme(
+    primary = ElderBlue,
     onPrimary = Color.White,
+    primaryContainer = ElderBlueContainer,
+    onPrimaryContainer = ElderBlueDark,
+    secondary = ElderOrange,
     onSecondary = Color.White,
+    secondaryContainer = ElderOrangeContainer,
+    onSecondaryContainer = Color(0xFF4E1F00),
+    tertiary = Color(0xFF1B5E20),
     onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    background = Color.White,
+    onBackground = TextOnLight,
+    surface = Color.White,
+    onSurface = TextOnLight,
+    surfaceVariant = PanelSurface,
+    onSurfaceVariant = TextOnLight,
+    surfaceContainer = PanelSurface,
+    surfaceContainerHigh = ElderBlueContainer,
+    error = ElderRed,
+    onError = Color.White,
+    errorContainer = Color(0xFFFFCDD2),
+    onErrorContainer = ElderRed,
+    outline = Color(0xFF616161),
+    outlineVariant = Color(0xFFBDBDBD),
 )
 
+// Always light — no dark mode for elderly users
 @Composable
-fun PhotoCardTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
+fun PhotoCardTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = ElderColorScheme,
         typography = Typography,
         content = content
     )
