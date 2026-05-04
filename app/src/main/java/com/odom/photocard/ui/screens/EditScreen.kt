@@ -4,7 +4,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -78,8 +77,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.odom.photocard.ui.theme.AppFonts
 import com.odom.photocard.viewmodel.PhotoCardViewModel
 import com.odom.photocard.viewmodel.TextOverlay
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyItems
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -191,7 +193,7 @@ fun EditScreen(
                         onDelete = { viewModel.deleteTextOverlay(selectedId) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(300.dp)
+                            .height(360.dp)
                     )
                 }
             }
@@ -316,7 +318,8 @@ private fun DraggableText(
                 style = TextStyle(
                     color = textOverlay.color,
                     fontSize = tempFontSize.sp,
-                    fontWeight = textOverlay.fontWeight
+                    fontWeight = textOverlay.fontWeight,
+                    fontFamily = AppFonts.getByName(textOverlay.fontFamily)
                 ),
                 textAlign = TextAlign.Center
             )
@@ -496,6 +499,35 @@ private fun TextEditorPanel(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Font family picker
+        Text("Font:", style = MaterialTheme.typography.bodySmall)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            lazyItems(AppFonts.options) { fontOption ->
+                FilterChip(
+                    selected = textOverlay.fontFamily == fontOption.name,
+                    onClick = { onUpdate(textOverlay.copy(fontFamily = fontOption.name)) },
+                    label = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Aa",
+                                fontFamily = fontOption.fontFamily,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = fontOption.name,
+                                fontSize = 9.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -560,32 +592,32 @@ private suspend fun saveAndShareImage(
     
     try {
         withContext(Dispatchers.IO) {
-            // Create bitmap with text overlays
             val finalBitmap = createFinalBitmap(state)
-            
-            // Save to cache file
-            val cacheFile = File(context.cacheDir, "photocard_${System.currentTimeMillis()}.jpg")
-            FileOutputStream(cacheFile).use { out ->
+
+            // Save to gallery directory (persists for gallery view)
+            val galleryDir = File(context.filesDir, "gallery")
+            galleryDir.mkdirs()
+            val galleryFile = File(galleryDir, "photocard_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(galleryFile).use { out ->
                 finalBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
             }
-            
-            // Share the image
+
             val uri = androidx.core.content.FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.provider",
-                cacheFile
+                galleryFile
             )
-            
+
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "image/jpeg"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            
+
             val chooser = Intent.createChooser(shareIntent, "Share Photo Card")
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(chooser)
-            
+
             viewModel.markSaveSuccess()
         }
     } catch (e: Exception) {
@@ -630,12 +662,8 @@ private fun createFinalBitmap(state: com.odom.photocard.viewmodel.PhotoCardState
     state.textOverlays.forEach { overlay ->
         paint.apply {
             color = overlay.color.toArgb()
-            textSize = overlay.fontSize.value * 3f // Scale up for bitmap
-            typeface = when (overlay.fontWeight) {
-                FontWeight.Bold -> Typeface.DEFAULT_BOLD
-                FontWeight.Light -> Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-                else -> Typeface.DEFAULT
-            }
+            textSize = overlay.fontSize.value * 3f
+            typeface = AppFonts.getBitmapTypeface(overlay.fontFamily, overlay.fontWeight)
         }
 
         val x = overlay.x * 3f

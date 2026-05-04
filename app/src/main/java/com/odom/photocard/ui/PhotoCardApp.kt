@@ -1,37 +1,29 @@
 package com.odom.photocard.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.odom.photocard.ui.screens.EditScreen
+import com.odom.photocard.ui.screens.GalleryScreen
 import com.odom.photocard.ui.screens.ImageEditScreen
 import com.odom.photocard.ui.screens.ImageSourceScreen
 import com.odom.photocard.viewmodel.PhotoCardViewModel
 
-/**
- * Navigation routes for the Photo Card app
- */
 sealed class Screen(val route: String) {
     data object ImageSource : Screen("image_source")
     data object ImageEdit : Screen("image_edit")
     data object Edit : Screen("edit")
+    data object Gallery : Screen("gallery")
 }
 
-/**
- * Image source type to determine navigation flow
- */
 enum class ImageSourceType {
-    CAMERA_GALLERY,  // Needs image editing
-    SAMPLE_IMAGE,    // Skip editing, go to edit
-    SOLID_COLOR      // Skip editing, go to edit
+    CAMERA_GALLERY,
+    SAMPLE_IMAGE,
+    SOLID_COLOR
 }
 
-/**
- * Main app navigation host
- */
 @Composable
 fun PhotoCardApp(
     viewModel: PhotoCardViewModel = viewModel()
@@ -52,10 +44,12 @@ fun PhotoCardApp(
                         }
                         ImageSourceType.SAMPLE_IMAGE,
                         ImageSourceType.SOLID_COLOR -> {
-                            // Skip image editing for samples and colors
                             navController.navigate(Screen.Edit.route)
                         }
                     }
+                },
+                onNavigateToGallery = {
+                    navController.navigate(Screen.Gallery.route)
                 }
             )
         }
@@ -79,6 +73,12 @@ fun PhotoCardApp(
                     viewModel.clearState()
                     navController.popBackStack(Screen.ImageSource.route, false)
                 }
+            )
+        }
+
+        composable(Screen.Gallery.route) {
+            GalleryScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

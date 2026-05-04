@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:proandroiddev.com)"
+      "WebFetch(domain:proandroiddev.com)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\AndroidStudioProjects\\\\PhotoCard\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(./gradlew assembleDebug)",
+      "PowerShell($env:JAVA_HOME = \"C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\"; Set-Location \"C:\\\\Users\\\\User\\\\AndroidStudioProjects\\\\PhotoCard\"; .\\\\gradlew assembleDebug 2>&1 | Select-Object -Last 60)"
     ]
   }
 }

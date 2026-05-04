@@ -20,12 +20,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -61,7 +63,8 @@ import java.util.Locale
 @Composable
 fun ImageSourceScreen(
     viewModel: PhotoCardViewModel,
-    onImageSelected: (ImageSourceType) -> Unit
+    onImageSelected: (ImageSourceType) -> Unit,
+    onNavigateToGallery: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var photoUri by remember { mutableStateOf<Uri?>(null) }
@@ -124,6 +127,15 @@ fun ImageSourceScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Create Photo Card") },
+                actions = {
+                    IconButton(onClick = onNavigateToGallery) {
+                        Icon(
+                            Icons.Default.Collections,
+                            contentDescription = "My Cards",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary
