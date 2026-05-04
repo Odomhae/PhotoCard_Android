@@ -11,7 +11,8 @@
       "PowerShell($env:JAVA_HOME = \"C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\"; Set-Location \"C:\\\\Users\\\\User\\\\AndroidStudioProjects\\\\PhotoCard\"; .\\\\gradlew assembleDebug 2>&1 | Select-Object -Last 50)",
       "Bash(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\User\\\\.claude\\\\projects\\\\C--Users-User-AndroidStudioProjects-PhotoCard\\\\memory\")",
       "Bash(Out-Null)",
-      "Bash(Write-Output \"Directory ready\")"
+      "Bash(Write-Output \"Directory ready\")",
+      "PowerShell($env:JAVA_HOME = \"C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\"; Set-Location \"C:\\\\Users\\\\User\\\\AndroidStudioProjects\\\\PhotoCard\"; .\\\\gradlew assembleDebug 2>&1 | Select-Object -Last 30)"
     ]
   }
 }

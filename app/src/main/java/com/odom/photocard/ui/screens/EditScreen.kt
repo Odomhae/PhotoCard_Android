@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,17 +45,21 @@ import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -110,11 +115,14 @@ fun EditScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
-    // Show toast for save success
+
+    var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var showPreviewDialog by remember { mutableStateOf(false) }
+    var isGeneratingPreview by remember { mutableStateOf(false) }
+
     LaunchedEffect(state.saveSuccess) {
         if (state.saveSuccess) {
-            Toast.makeText(context, "Image saved to gallery!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "갤러리에 저장되었습니다!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -135,9 +143,15 @@ fun EditScreen(
                     }
                     IconButton(
                         onClick = {
-                            scope.launch { saveAndShareImage(context, state, viewModel) }
+                            scope.launch {
+                                isGeneratingPreview = true
+                                val bitmap = withContext(Dispatchers.IO) { createFinalBitmap(state) }
+                                previewBitmap = bitmap
+                                isGeneratingPreview = false
+                                showPreviewDialog = true
+                            }
                         },
-                        enabled = !state.isSaving
+                        enabled = !state.isSaving && !isGeneratingPreview
                     ) {
                         Icon(Icons.Default.Share, contentDescription = "공유")
                     }
@@ -241,6 +255,91 @@ fun EditScreen(
                             .fillMaxWidth()
                             .height(430.dp)
                     )
+                }
+            }
+        }
+    }
+
+    // Loading dialog while generating preview bitmap
+    if (isGeneratingPreview) {
+        Dialog(onDismissRequest = {}) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(28.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(40.dp))
+                    Text("미리보기 생성 중...", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+
+    // Preview dialog — user can inspect before sharing
+    if (showPreviewDialog && previewBitmap != null) {
+        Dialog(onDismissRequest = { showPreviewDialog = false }) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "완성된 포토카드",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    Image(
+                        bitmap = previewBitmap!!.asImageBitmap(),
+                        contentDescription = "미리보기",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showPreviewDialog = false },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                        ) {
+                            Text("취소", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Button(
+                            onClick = {
+                                val bitmapToShare = previewBitmap!!
+                                showPreviewDialog = false
+                                scope.launch {
+                                    saveAndShareImage(context, bitmapToShare, viewModel)
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("공유하기", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
@@ -645,21 +744,17 @@ private fun ColorPicker(
 
 private suspend fun saveAndShareImage(
     context: android.content.Context,
-    state: com.odom.photocard.viewmodel.PhotoCardState,
+    bitmap: Bitmap,
     viewModel: PhotoCardViewModel
 ) {
     viewModel.setSavingState(true)
-    
     try {
         withContext(Dispatchers.IO) {
-            val finalBitmap = createFinalBitmap(state)
-
-            // Save to gallery directory (persists for gallery view)
             val galleryDir = File(context.filesDir, "gallery")
             galleryDir.mkdirs()
             val galleryFile = File(galleryDir, "photocard_${System.currentTimeMillis()}.jpg")
             FileOutputStream(galleryFile).use { out ->
-                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
             }
 
             val uri = androidx.core.content.FileProvider.getUriForFile(
@@ -667,21 +762,18 @@ private suspend fun saveAndShareImage(
                 "${context.packageName}.provider",
                 galleryFile
             )
-
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "image/jpeg"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-
-            val chooser = Intent.createChooser(shareIntent, "Share Photo Card")
+            val chooser = Intent.createChooser(shareIntent, "포토카드 공유")
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(chooser)
-
             viewModel.markSaveSuccess()
         }
     } catch (e: Exception) {
-        Toast.makeText(context, "Failed to save image: ${e.message}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "공유 실패: ${e.message}", Toast.LENGTH_SHORT).show()
     } finally {
         viewModel.setSavingState(false)
     }
